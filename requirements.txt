@@ -1,0 +1,8 @@
+openai-whisper
+pyannote.audio
+groq
+gradio
+soundfile
+datasets
+tqdm
+python-dotenv
