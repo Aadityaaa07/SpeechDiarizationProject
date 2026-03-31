@@ -1,0 +1,52 @@
+python -m venv venv_whisper
+venv_whisper\Scripts\activate
+
+venv_whisper\Scripts\activate
+python src\transcribe.py
+
+
+diarization_project/
+│
+├── .env
+├── .gitignore
+├── app.py                          (Main Flask application)
+├── dataset.py
+├── notes.txt
+├── requirements.txt
+│
+├── __pycache__/
+│
+|-- data/
+|   |-- processed/
+|   |-- raw/
+|   |-- trimmed/                       (Trimmed audio segments)
+│
+├── outputs/
+│   ├── final_output.txt           (Final combined output)
+│   ├── speakers.json              (Speaker identification data)
+│   └── whisper.json               (Whisper transcription data)
+│
+├── src/                           (Core processing modules)
+│   ├── __pycache__/
+│   ├── convert_audio.py           (Audio format conversion)
+│   ├── diarize.py                 (Speaker diarization - runs in venv_diarization)
+│   ├── merge.py                   (Merge transcriptions with diarization)
+│   ├── speaker_identify.py        (Identify and label speakers)
+│   └── transcribe.py              (Speech-to-text - runs in venv_whisper)
+│
+├── static/    
+|    |
+|    |-- style.css                 (Static web assets)
+│
+├── templates/
+│   └── index.html                 (Web interface)
+│
+├── uploads/                       (User uploaded files)
+│
+├── venv/                          (Main virtual environment)
+├── venv_diarization/              (Environment for diarization)
+|── venv_whisper/                  (Environment for Whisper transcription)
+|
+|--notes.txt
+
+

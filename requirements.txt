@@ -6,3 +6,11 @@ soundfile
 datasets
 tqdm
 python-dotenv
+flask
+faster-whisper
+pyannote.audio
+pydub
+
+# git add .
+# git commit -m "update"
+# git push

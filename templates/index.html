@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Speech Diarization</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/wavesurfer.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/plugin/wavesurfer.regions.min.js"></script>
+    <style>
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #ef4444;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .transcript {
+            font-family: 'Noto Sans Devanagari', 'DM Sans', sans-serif;
+            line-height: 1.8;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid #10b981;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            color: #10b981;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-grid"></div>
+
+    <div class="container">
+
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-icon">🎙</div>
+            <div>
+                <h1>Speech <span class="accent">Diarization</span></h1>
+                <p class="subtitle">Upload audio · Trim · Identify speakers</p>
+            </div>
+        </header>
+
+        <!-- MESSAGES -->
+        {% if error %}
+        <div class="error-message">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="success-message">
+            ✅ {{ success }}
+        </div>
+        {% endif %}
+
+        <!-- STEP 1: UPLOAD -->
+        <section class="card upload-card">
+            <div class="step-badge">01</div>
+            <h2>Upload Audio</h2>
+            <form method="POST" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+                <label class="upload-box" id="uploadLabel">
+                    <div class="upload-icon">📎</div>
+                    <span id="uploadText">Click or drag to upload audio</span>
+                    <input type="file" name="audio" id="audioInput" accept="audio/*" required hidden>
+                </label>
+                <button type="submit" class="btn primary-btn">Upload File</button>
+            </form>
+
+            {% if file_name %}
+            <div class="file-badge">
+                <span class="file-icon">🎵</span>
+                <span class="file-name">{{ file_name }}</span>
+            </div>
+            {% endif %}
+        </section>
+
+
+        {% if audio_path %}
+
+        <!-- STEP 2: AUDIO PREVIEW + WAVEFORM EDITOR -->
+        <section class="card editor-card">
+            <div class="step-badge">02</div>
+            <h2>Edit Audio</h2>
+
+            <div class="audio-meta">
+                <span class="file-icon">🎵</span>
+                <span class="file-name">{{ file_name }}</span>
+            </div>
+
+            <audio id="nativeAudio" hidden>
+                <source src="{{ audio_path }}">
+            </audio>
+
+            <!-- Waveform XY stretched across timeline -->
+            <div class="waveform-wrapper">
+                <div id="waveform"></div>
+                <div class="waveform-time">
+                    <span id="currentTime">0:00</span>
+                    <span id="totalTime">0:00</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="playPause()" class="btn icon-btn" id="playBtn">▶ Play</button>
+                <button onclick="trimAndProcess()" class="btn icon-btn" id="trimBtn">✂ Trim & Process</button>
+                <button onclick="processAudio()" class="btn primary-btn" id="processBtn">🚀 Process Audio</button>
+            </div>
+
+            <div class="trim-hint">💡 Drag the highlighted region on the waveform to select a segment for trimming and
+                auto-processing.
+            </div>
+        </section>
+
+        {% endif %}
+
+
+        <!-- TIMELINE -->
+        {% if timeline %}
+        <section class="card results-card">
+            <h2>📊 Speaker Timeline</h2>
+
+            <div class="timeline-visual">
+                {% for item in timeline %}
+                <div class="timeline-block speaker-{{ loop.index0 % 5 }}"
+                    title="{{ item.speaker }}: {{ item.start }}s → {{ item.end }}s">
+                    <span class="tl-speaker">{{ item.speaker }}</span>
+                    <span class="tl-time">{{ item.start }}s – {{ item.end }}s</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <table class="timeline-table">
+                <thead>
+                    <tr>
+                        <th>Speaker</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in timeline %}
+                    <tr>
+                        <td><span class="speaker-dot speaker-{{ loop.index0 % 5 }}"></span> {{ item.speaker }}</td>
+                        <td>{{ item.start }}s</td>
+                        <td>{{ item.end }}s</td>
+                        <td>{{ (item.end - item.start) | round(1) }}s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+
+        <!-- TRANSCRIPT -->
+        {% if transcript %}
+        <section class="card transcript-card">
+            <h2>🧠 Transcript (Hindi)</h2>
+            <div class="transcript">{{ transcript | safe }}</div>
+        </section>
+        {% endif %}
+
+    </div>
+
+
+    <script>
+        // File name display on select
+        const audioInput = document.getElementById('audioInput');
+        const uploadText = document.getElementById('uploadText');
+
+        if (audioInput) {
+            audioInput.addEventListener('change', () => {
+                if (audioInput.files.length > 0) {
+                    uploadText.textContent = '✅ ' + audioInput.files[0].name;
+                    uploadText.style.color = '#8b5cf6';
+                }
+            });
+        }
+
+        {% if audio_path %}
+        // WaveSurfer setup
+        const wavesurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: '#94a3b8',
+            progressColor: '#8b5cf6',
+            cursorColor: '#ef4444',
+            barWidth: 2,
+            barGap: 1,
+            barRadius: 2,
+            height: 90,
+            responsive: true,
+            normalize: true,
+            plugins: [
+                WaveSurfer.regions.create({
+                    regionsMinLength: 0.5,
+                    dragSelection: { slop: 5 }
+                })
+            ]
+        });
+
+        wavesurfer.load("{{ audio_path }}");
+
+        let activeRegion = null;
+
+        wavesurfer.on('ready', function () {
+            const dur = wavesurfer.getDuration();
+            document.getElementById('totalTime').textContent = formatTime(dur);
+
+            // Default selection region
+            activeRegion = wavesurfer.addRegion({
+                start: 0,
+                end: Math.min(5, dur),
+                color: 'rgba(139, 92, 246, 0.2)',
+                drag: true,
+                resize: true
+            });
+        });
+
+        wavesurfer.on('audioprocess', function () {
+            document.getElementById('currentTime').textContent = formatTime(wavesurfer.getCurrentTime());
+        });
+
+        wavesurfer.on('region-created', function (region) {
+            Object.values(wavesurfer.regions.list).forEach(r => {
+                if (r.id !== region.id) r.remove();
+            });
+            activeRegion = region;
+        });
+
+        wavesurfer.on('region-updated', function (region) {
+            activeRegion = region;
+        });
+
+        function playPause() {
+            wavesurfer.playPause();
+            const btn = document.getElementById('playBtn');
+            btn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶ Play';
+        }
+
+        // Process audio without trim - FIXED VERSION
+        function processAudio() {
+            // Show loading state
+            const processBtn = document.getElementById('processBtn');
+            const originalText = processBtn.textContent;
+            processBtn.textContent = '⏳ Processing...';
+            processBtn.disabled = true;
+
+            // Create a hidden form and submit it
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/';
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'action';
+            input.value = 'process';
+
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Trim and process without popup
+        function trimAndProcess() {
+            if (!activeRegion) {
+                alert('Please select a region on the waveform first.');
+                return;
+            }
+
+            // Show loading state
+            const trimBtn = document.getElementById('trimBtn');
+            const originalText = trimBtn.textContent;
+            trimBtn.textContent = '✂ Trimming & Processing...';
+            trimBtn.disabled = true;
+
+            fetch('/trim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start: activeRegion.start,
+                    end: activeRegion.end
+                })
+            })
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Trim failed');
+                    }
+                    return data;
+                })
+                .then(data => {
+                    // Reload immediately to show results
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ ' + error.message);
+                    // Reset button
+                    trimBtn.textContent = originalText;
+                    trimBtn.disabled = false;
+                });
+        }
+
+        function formatTime(secs) {
+            const m = Math.floor(secs / 60);
+            const s = Math.floor(secs % 60);
+            return m + ':' + String(s).padStart(2, '0');
+        }
+        {% endif %}
+    </script>
+
+</body>
+
+</html>
